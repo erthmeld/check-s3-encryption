@@ -11,7 +11,7 @@ def lambda_handler(event, context):
     unencrypted_buckets = {}
 
     for bucket in all_buckets['Buckets']:
-        if is_bucket_encryped(s3Client, bucket['Name']):
+        if not is_bucket_encryped(s3Client, bucket['Name']):
             print('Bucket not encrypted:  ' + bucket)
     
     #publish_sns("testing123", )
@@ -30,9 +30,13 @@ def get_buckets(client):
     return s3Buckets
 
 def is_bucket_encryped(client, bucketName):
-    encryption = client.get_bucket_encryption(Bucket=bucketName)
-    print(encryption)
-    return False
+    try:
+        encryption = client.get_bucket_encryption(Bucket=bucketName)
+    except ServerSideEncryptionConfigurationNotFoundError:
+        return False
+    else:
+        print(encryption)
+        return True
         
 def publish_sns(message):
     topicARN = 'arn:aws:sns:us-east-1:996921890895:gene-crumpler-s3-encryption'
