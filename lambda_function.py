@@ -1,5 +1,6 @@
 import json
 import boto3
+import botocore.exceptions
 
 def lambda_handler(event, context):
     """Lambda function to identify unencrypted s3 buckets associated with the AWS
@@ -32,8 +33,11 @@ def get_buckets(client):
 def is_bucket_encryped(client, bucketName):
     try:
         encryption = client.get_bucket_encryption(Bucket=bucketName)
-    except ServerSideEncryptionConfigurationNotFoundError:
-        return False
+    except client.exceptions.ClientErr as e:
+        if e.response['Error']['Code'] == 'ServerSideEncryptionConfigurationNotFoundError':
+            return False
+        else:
+            raise e
     else:
         print(encryption)
         return True
