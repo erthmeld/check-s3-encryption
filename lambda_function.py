@@ -8,14 +8,15 @@ def lambda_handler(event, context):
     account in use and send an email notification via an SNS resource.
     """
 
-    checkS3 = check_s3_encryption
-    response = checkS3.send_unencrypted_alerts()
+    checkS3 = check_s3_encryption()
+    response = checkS3.send_unencrypted_alerts("")
     return response
 
 
 class check_s3_encryption:
     s3Client = boto3.client('s3')
     snsClient = boto3.client('sns')
+    stsClient = boto3.client('sts')
     unencryptedBuckets = []
 
     def __init__(self):
@@ -32,7 +33,7 @@ class check_s3_encryption:
 
     def __set_unencrypted_buckets(self):
         for bucket in self.buckets['Buckets']:
-            if not self.__is_bucket_encryped(self.s3Client, bucket['Name']):
+            if not self.__is_bucket_encryped(bucket['Name']):
                 self.unencryptedBuckets.append(bucket)
 
     def __is_bucket_encryped(self, bucketName):
@@ -47,26 +48,25 @@ class check_s3_encryption:
             return True
 
     def set_unencrypted_alert_message(self, buckets, **kwargs):
-        accountId = self.snsClient.get_caller_identity().get('Account')
-        if kwargs['subject']:
+        accountId = self.stsClient.get_caller_identity().get('Account')
+        if 'subject' in kwargs:
             self.alertSubject = kwargs['subject']
         else:
             self.alertSubject = "ALERT:  Unencrypted s3 buckets found"
-        if kwargs['message']:
+        if 'message' in kwargs:
                 self.alertSubject = kwargs['subject']
         else:
             self.alertMessage = "The s3 buckets specified below do not have a server side encryption configuration. \
 Please review and correct the configuration if required. \n\nAccount ID:  " + accountId + "\n"
         
         for bucket in buckets:
-            message = message + "\tBucket Name:  " + bucket['Name']
+            self.alertMessage = self.alertMessage + "\tBucket Name:  " + bucket['Name']
 
     def send_unencrypted_alerts(self, topicList):
         if len(self.unencryptedBuckets) > 0:
             topicARN = 'arn:aws:sns:us-east-1:996921890895:gene-crumpler-s3-encryption'
-            snsTopic = self.snsClient.Topic(topicARN)
-            snsTopic.load()
-            response = snsTopic.publish(
+            response = self.snsClient.publish(
+                TopicArn=topicARN,
                 Subject=self.alertSubject,
                 Message=self.alertMessage)
             return response
