@@ -9,7 +9,7 @@ def lambda_handler(event, context):
     """
 
     checkS3 = check_s3()
-    response = checkS3.send_unencrypted_alerts(["arn:aws:sns:us-east-1:996921890895:gene-crumpler-s3-encryption"])
+    response = checkS3.send_unencrypted_alerts("arn:aws:sns:us-east-1:996921890895:gene-crumpler-s3-encryption")
     return response
 
 
@@ -47,7 +47,7 @@ class check_s3:
     def __set_unencrypted_buckets(self):
         for bucket in self.__buckets['Buckets']:
             if not self.__is_bucket_encryped(bucket['Name']):
-                self.unencryptedBuckets.append(bucket)
+                self.__unencryptedBuckets.append(bucket)
 
 
     def __is_bucket_encryped(self, bucketName):
