@@ -1,4 +1,5 @@
 import boto3
+from botocore.client import ClientEndpointBridge
 import botocore.exceptions
 
 
@@ -8,10 +9,14 @@ def lambda_handler(event, context):
 
     Returns:
         response(dict): SNS topic ARN as key and publish reponse as value
+        Or string literal if there was a ClientError while processing request
     """
 
     checkS3 = check_s3()
-    response = checkS3.send_unencrypted_alerts("arn:aws:sns:us-east-1:996921890895:gene-crumpler-s3-encryption")
+    try:
+        response = checkS3.send_unencrypted_alerts("arn:aws:sns:us-east-1:996921890895:gene-crumpler-s3-encryption")
+    except botocore.exceptions.ClientError as e:
+        response = "There was a ClientError attempting to process this request \n\n" + e
     return response
 
 
