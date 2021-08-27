@@ -8,12 +8,12 @@ def lambda_handler(event, context):
     account in use and send an email notification via an SNS resource.
     """
 
-    checkS3 = check_s3_encryption()
+    checkS3 = check_s3()
     response = checkS3.send_unencrypted_alerts("")
     return response
 
 
-class check_s3_encryption:
+class check_s3:
     s3Client = boto3.client('s3')
     snsClient = boto3.client('sns')
     stsClient = boto3.client('sts')
