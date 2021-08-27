@@ -83,7 +83,7 @@ Please review and correct the configuration if required. \n\nAccount ID:  " + ac
         to any topics provided by *topicList param.
         
         Params:
-            *topicList(list): List of TopicArn strings to publish to
+            *topicList(*args): List of TopicArn strings to publish to
 
         Returns:
             responses(dict[TopicArn:response]): Response json data from each sns publish call
