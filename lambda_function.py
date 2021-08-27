@@ -8,51 +8,67 @@ def lambda_handler(event, context):
     account in use and send an email notification via an SNS resource.
     """
 
+    checkS3 = check_s3_encryption
+    response = checkS3.send_unencrypted_alerts()
+    return response
+
+
+class check_s3_encryption:
     s3Client = boto3.client('s3')
+    snsClient = boto3.client('sns')
+    unencryptedBuckets = []
 
-    all_buckets = get_buckets(s3Client)
-    unencrypted_buckets = []
+    def __init__(self):
+        self.buckets = self.s3Client.list_buckets()
+        self.__set_unencrypted_buckets()
+        self.set_unencrypted_alert_message(self.unencryptedBuckets)
 
-    for bucket in all_buckets['Buckets']:
-        if not is_bucket_encryped(s3Client, bucket['Name']):
-            unencrypted_buckets.append(bucket)
-    
-    response = send_encryption_alert(unencrypted_buckets)
-    return response
+    def __get_buckets(self):
+        """Queries s3 via boto3 client connection to generate and return a list of 
+        s3 buckets associated with the current account/region.
+        """
+        
+        return self.buckets
 
-def get_buckets(client):
-    """Queries s3 via boto3 client connection to generate and return a list of 
-    s3 buckets associated with the current account/region.
-    """
-    
-    s3Buckets = client.list_buckets()
-    return s3Buckets
+    def __set_unencrypted_buckets(self):
+        for bucket in self.buckets['Buckets']:
+            if not self.__is_bucket_encryped(self.s3Client, bucket['Name']):
+                self.unencryptedBuckets.append(bucket)
 
-def is_bucket_encryped(client, bucketName):
-    try:
-        encryption = client.get_bucket_encryption(Bucket=bucketName)
-    except botocore.exceptions.ClientError as e:
-        if e.response['Error']['Code'] == 'ServerSideEncryptionConfigurationNotFoundError':
-            return False
+    def __is_bucket_encryped(self, bucketName):
+        try:
+            encryption = self.s3Client.get_bucket_encryption(Bucket=bucketName)
+        except botocore.exceptions.ClientError as e:
+            if e.response['Error']['Code'] == 'ServerSideEncryptionConfigurationNotFoundError':
+                return False
+            else:
+                raise e
         else:
-            raise e
-    else:
-        return True
-        
-def send_encryption_alert(buckets):
-    topicARN = 'arn:aws:sns:us-east-1:996921890895:gene-crumpler-s3-encryption'
-    accountId = boto3.client('sts').get_caller_identity().get('Account')
+            return True
 
-    subject= "ALERT:  Unencrypted s3 buckets found"
-    message = "The s3 buckets specified below do not have a server side encryption configuration. \
-    Please review and correct the configuration if required. \nAccount ID:" + accountId + "\n"
-    for bucket in buckets:
-        message = message + "\tBucket Name:  " + bucket['Name']
+    def set_unencrypted_alert_message(self, buckets, **kwargs):
+        accountId = self.snsClient.get_caller_identity().get('Account')
+        if kwargs['subject']:
+            self.alertSubject = kwargs['subject']
+        else:
+            self.alertSubject = "ALERT:  Unencrypted s3 buckets found"
+        if kwargs['message']:
+                self.alertSubject = kwargs['subject']
+        else:
+            self.alertMessage = "The s3 buckets specified below do not have a server side encryption configuration. \
+Please review and correct the configuration if required. \n\nAccount ID:  " + accountId + "\n"
         
-    snsResource = boto3.resource('sns')
-    snsTopic = snsResource.Topic(topicARN)
-    snsTopic.load()
-    response = snsTopic.publish(
-        Subject=subject,
-        Message=message)
-    return response
+        for bucket in buckets:
+            message = message + "\tBucket Name:  " + bucket['Name']
+
+    def send_unencrypted_alerts(self, topicList):
+        if len(self.unencryptedBuckets) > 0:
+            topicARN = 'arn:aws:sns:us-east-1:996921890895:gene-crumpler-s3-encryption'
+            snsTopic = self.snsClient.Topic(topicARN)
+            snsTopic.load()
+            response = snsTopic.publish(
+                Subject=self.alertSubject,
+                Message=self.alertMessage)
+            return response
+        else:
+            return "No unencrypted buckets found"
