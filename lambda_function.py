@@ -5,6 +5,9 @@ import botocore.exceptions
 def lambda_handler(event, context):
     """Lambda function to identify unencrypted s3 buckets associated with the AWS
     account in use and send an email notification via an SNS resource.
+
+    Returns:
+        response(dict): SNS topic ARN as key and publish reponse as value
     """
 
     checkS3 = check_s3()
